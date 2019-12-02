@@ -252,7 +252,7 @@ class WebSocketClient {
 
     private func clientChannelInitializer(channel: Channel) -> EventLoopFuture<Void> {
         let httpHandler = HTTPClientHandler(client: self)
-                let basicUpgrader = NIOWebClientSocketUpgrader(requestKey: self.requestKey, maxFrameSize: 1 << self.maxFrameSize,
+        let basicUpgrader = NIOWebClientSocketUpgrader(requestKey: self.requestKey, maxFrameSize: 1 << self.maxFrameSize,
                                                        automaticErrorHandling: false, upgradePipelineHandler: self.upgradePipelineHandler)
         let config: NIOHTTPClientUpgradeConfiguration = (upgraders: [basicUpgrader],
                                                          completionHandler: { context in
