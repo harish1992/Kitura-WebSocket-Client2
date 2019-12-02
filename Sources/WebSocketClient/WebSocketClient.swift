@@ -22,6 +22,7 @@ import Dispatch
 import XCTest
 import WebSocketCompression
 import NIOFoundationCompat
+import NIOSSL
 
 #if os(Linux)
     import Glibc
@@ -35,6 +36,7 @@ class WebSocketClient {
     let uri: String
     var channel: Channel? = nil
     public var maxFrameSize: Int
+    var enableSSL: Bool = false
 
     //  This semaphore signals when the client successfully recieves the Connection upgrade response from remote server
     //  Ensures that webSocket frames are sent on channel only after the connection is successfully upgraded to WebSocket Connection
@@ -64,7 +66,7 @@ class WebSocketClient {
     //     - compressionConfig : compression configuration
 
     public init?(host: String, port: Int, uri: String, requestKey: String,
-                 compressionConfig: CompressionConfig? = nil, maxFrameSize: Int = 14, onOpen: @escaping (Channel?) -> Void = { _ in }) {
+                 compressionConfig: CompressionConfig? = nil, maxFrameSize: Int = 14, enableSSL: Bool = false, onOpen: @escaping (Channel?) -> Void = { _ in }) {
         self.requestKey = requestKey
         self.host = host
         self.port = port
@@ -72,6 +74,7 @@ class WebSocketClient {
         self.onOpenCallback = onOpen
         self.compressionConfig = compressionConfig
         self.maxFrameSize = maxFrameSize
+        self.enableSSL = enableSSL
     }
 
     // Create a new `WebSocketClient`.
@@ -96,6 +99,7 @@ class WebSocketClient {
         self.uri =  rawUrl?.path ?? "/"
         self.compressionConfig = config
         self.maxFrameSize = 24
+        self.enableSSL = (rawUrl?.scheme == "wss" || rawUrl?.scheme == "https") ? true : false
     }
 
     let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -248,12 +252,22 @@ class WebSocketClient {
 
     private func clientChannelInitializer(channel: Channel) -> EventLoopFuture<Void> {
         let httpHandler = HTTPClientHandler(client: self)
-        let basicUpgrader = NIOWebClientSocketUpgrader(requestKey: self.requestKey, maxFrameSize: 1 << self.maxFrameSize,
+                let basicUpgrader = NIOWebClientSocketUpgrader(requestKey: self.requestKey, maxFrameSize: 1 << self.maxFrameSize,
                                                        automaticErrorHandling: false, upgradePipelineHandler: self.upgradePipelineHandler)
-        let config: NIOHTTPClientUpgradeConfiguration = (upgraders: [basicUpgrader], completionHandler: { context in
+        let config: NIOHTTPClientUpgradeConfiguration = (upgraders: [basicUpgrader],
+                                                         completionHandler: { context in
             context.channel.pipeline.removeHandler(httpHandler, promise: nil)})
         return channel.pipeline.addHTTPClientHandlers(withClientUpgrade: config).flatMap { _ in
-            return channel.pipeline.addHandler(httpHandler)
+            return channel.pipeline.addHandler(httpHandler).flatMap { _ in
+                if self.enableSSL {
+                    let tlsConfig = TLSConfiguration.forClient()
+                    let sslContext =  try! NIOSSLContext(configuration: tlsConfig)
+                    let sslHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: self.host)
+                    return channel.pipeline.addHandler(sslHandler, position: .first)
+                } else {
+                    return channel.eventLoop.makeSucceededFuture(())
+                }
+            }
         }
     }
 
