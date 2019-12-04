@@ -44,6 +44,9 @@ let package = Package(
         .target(
             name: "WebSocketClient",
             dependencies: ["NIO", "NIOFoundationCompat", "NIOHTTP1", "NIOSSL", "NIOWebSocket", "NIOConcurrencyHelpers", "NIOExtras", "WebSocketCompression", "Kitura-WebSocket",]),
+        .target(
+            name: "TestWebSocketClient",
+            dependencies: ["WebSocketClient"]),
         .testTarget(
             name: "WebSocketClientTests",
             dependencies: ["WebSocketClient", "Kitura-WebSocket", "KituraNet", "LoggerAPI"]),

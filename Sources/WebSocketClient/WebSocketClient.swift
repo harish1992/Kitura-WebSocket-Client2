@@ -28,7 +28,7 @@ import NIOSSL
     import Glibc
 #endif
 
-class WebSocketClient {
+public class WebSocketClient {
 
     let requestKey: String
     let host: String
