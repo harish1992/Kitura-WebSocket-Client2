@@ -21,7 +21,6 @@ import NIOHTTP1
 import Dispatch
 
 class Delegate: WebSocketClientDelegate {
-
     weak var client: WebSocketClient?
 
     init(client: WebSocketClient?) {
